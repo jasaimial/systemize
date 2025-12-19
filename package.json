@@ -1,0 +1,33 @@
+{
+  "name": "systemize",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Systemize - Task management and habit formation platform for students",
+  "keywords": ["productivity", "education", "gamification"],
+  "author": "Your Name",
+  "license": "MIT",
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter web --filter api dev",
+    "build": "pnpm --filter shared build && pnpm --filter api --filter web build",
+    "lint": "pnpm --recursive lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "type-check": "pnpm --recursive type-check",
+    "test": "pnpm --recursive test",
+    "clean": "pnpm --recursive clean && rimraf node_modules",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:seed": "pnpm --filter api db:seed",
+    "db:studio": "pnpm --filter api db:studio"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "prettier": "^3.1.1",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}

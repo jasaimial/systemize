@@ -1,0 +1,73 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables
+.env
+.env*.local
+.env.production
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Prisma
+prisma/migrations/**/migration.sql
+
+# Turborepo
+.turbo/
+
+# Vercel
+.vercel/
+
+# Azure
+.azure/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Package manager locks (keep pnpm-lock.yaml only)
+package-lock.json
+yarn.lock

@@ -1,0 +1,43 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "terminal.integrated.defaultProfile.windows": "WSL",
+  "terminal.integrated.profiles.windows": {
+    "WSL": {
+      "path": "wsl.exe",
+      "args": []
+    }
+  },
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "es5",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "vim.useSystemClipboard": true,
+  "vim.handleKeys": {
+    "<C-c>": false,
+    "<C-v>": false,
+    "<C-a>": false,
+    "<C-f>": false
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma"
+  }
+}

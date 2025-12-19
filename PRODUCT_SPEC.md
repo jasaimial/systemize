@@ -6,7 +6,7 @@
 Middle school students, particularly academically gifted ones, often struggle with organizational skills despite their intellectual capabilities. They miss assignments, lose personal items, and lack systematic approaches to managing their responsibilities. This creates friction in their academic journey and prevents them from developing independence needed for high school and beyond.
 
 ### 1.2 Vision Statement
-**Systemize** is an engaging, gamified productivity platform that transforms disorganized middle schoolers into systematically organized students through positive reinforcement, intelligent reminders, and habit formation techniques. The goal is to help capable but disorganized middle-school students build systems, not just reminders—so they gradually internalize planning, follow-through, and self-regulation, and become independent learners before high school.
+**Systemize** is an engaging, gamified productivity platform that transforms disorganized middle schoolers into systematically organized students through positive reinforcement, intelligent reminders, and habit formation techniques. **The goal** is to help capable but disorganized middle-school students build systems, not just reminders - so they gradually internalize planning, follow-through, and self-regulation, and become independent learners before high school.
 
 ### 1.3 Target Persona
 - **Primary**: 6th-8th grade students (11-14 years old)

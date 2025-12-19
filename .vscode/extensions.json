@@ -1,0 +1,20 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "prisma.prisma",
+    "bradlc.vscode-tailwindcss",
+    "vscodevim.vim",
+    "ms-vscode-remote.remote-wsl",
+    "ms-azuretools.vscode-azureappservice",
+    "ms-azuretools.vscode-azurefunctions",
+    "ms-azuretools.vscode-azureresourcegroups",
+    "ms-vscode.azure-account",
+    "github.copilot",
+    "usernamehw.errorlens",
+    "christian-kohler.path-intellisense",
+    "mikestead.dotenv",
+    "formulahendry.auto-rename-tag",
+    "streetsidesoftware.code-spell-checker"
+  ]
+}
