@@ -23,13 +23,13 @@ model User {
   providerId    String    // OAuth provider user ID
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  
+
   // Relations
   tasks         Task[]
   progress      UserProgress?
   userBadges    UserBadge[]
   notifications Notification[]
-  
+
   @@unique([provider, providerId])
   @@index([email])
 }
@@ -52,11 +52,11 @@ model Task {
   completedAt   DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  
+
   // Relations
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   notifications Notification[]
-  
+
   @@index([userId, status])
   @@index([dueDate])
   @@index([userId, completedAt])
@@ -76,10 +76,10 @@ model UserProgress {
   lastActivityAt DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   // Relations
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([totalXP])
 }
 
@@ -96,10 +96,10 @@ model Badge {
   xpRequired  Int?        // null if criteria-based (e.g., streaks)
   criteria    String?     // JSON string for complex unlock logic
   createdAt   DateTime    @default(now())
-  
+
   // Relations
   userBadges  UserBadge[]
-  
+
   @@index([category])
 }
 
@@ -108,11 +108,11 @@ model UserBadge {
   userId    String
   badgeId   String
   earnedAt  DateTime @default(now())
-  
+
   // Relations
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
-  
+
   @@unique([userId, badgeId])
   @@index([userId])
 }
@@ -132,11 +132,11 @@ model Notification {
   scheduledAt DateTime // when to send the notification
   sentAt      DateTime?
   createdAt   DateTime @default(now())
-  
+
   // Relations
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId, isRead])
   @@index([scheduledAt, sentAt])
 }

@@ -167,7 +167,7 @@ async function test() {
       }
     }
   });
-  
+
   console.log('Users:', JSON.stringify(users, null, 2));
   await prisma.$disconnect();
 }
@@ -205,7 +205,7 @@ async function test() {
   await cacheHelpers.set('test-key', 'Hello Redis!', 60);
   const value = await cacheHelpers.get('test-key');
   console.log('Redis test:', value);
-  
+
   const client = await getRedisClient();
   await client.quit();
 }
