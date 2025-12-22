@@ -1,0 +1,167 @@
+### Systemize Backend API Requests
+### Use with REST Client extension in VS Code
+### Install: "REST Client" by Huachao Mao
+
+@baseUrl = http://localhost:3001
+@apiVersion = v1
+@authToken = your-jwt-token-here
+
+###############################################################################
+# Health & Info
+###############################################################################
+
+### Health Check
+GET {{baseUrl}}/health
+
+### API Root - Available Endpoints
+GET {{baseUrl}}/api/{{apiVersion}}/
+
+###############################################################################
+# Authentication (Public)
+###############################################################################
+
+### Sign Up
+POST {{baseUrl}}/api/{{apiVersion}}/auth/signup
+Content-Type: application/json
+
+{
+  "email": "student@example.com",
+  "name": "Test Student"
+}
+
+### Login
+POST {{baseUrl}}/api/{{apiVersion}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@example.com",
+  "password": "password123"
+}
+
+### Refresh Token
+POST {{baseUrl}}/api/{{apiVersion}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "your-refresh-token"
+}
+
+###############################################################################
+# Authentication (Protected)
+###############################################################################
+
+### Get Current User
+GET {{baseUrl}}/api/{{apiVersion}}/auth/me
+Authorization: Bearer {{authToken}}
+
+### Logout
+POST {{baseUrl}}/api/{{apiVersion}}/auth/logout
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# Tasks
+###############################################################################
+
+### Get All Tasks
+GET {{baseUrl}}/api/{{apiVersion}}/tasks
+Authorization: Bearer {{authToken}}
+
+### Get Upcoming Tasks
+GET {{baseUrl}}/api/{{apiVersion}}/tasks/upcoming
+Authorization: Bearer {{authToken}}
+
+### Get Overdue Tasks
+GET {{baseUrl}}/api/{{apiVersion}}/tasks/overdue
+Authorization: Bearer {{authToken}}
+
+### Create Task
+POST {{baseUrl}}/api/{{apiVersion}}/tasks
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "title": "Complete math homework",
+  "description": "Chapter 5 exercises",
+  "category": "HOMEWORK",
+  "priority": "HIGH",
+  "subject": "Mathematics",
+  "dueDate": "2025-12-25T18:00:00Z"
+}
+
+### Get Single Task
+GET {{baseUrl}}/api/{{apiVersion}}/tasks/task-id-here
+Authorization: Bearer {{authToken}}
+
+### Update Task
+PUT {{baseUrl}}/api/{{apiVersion}}/tasks/task-id-here
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "title": "Updated task title",
+  "status": "COMPLETED"
+}
+
+### Complete Task
+POST {{baseUrl}}/api/{{apiVersion}}/tasks/task-id-here/complete
+Authorization: Bearer {{authToken}}
+
+### Delete Task
+DELETE {{baseUrl}}/api/{{apiVersion}}/tasks/task-id-here
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# Progress & Gamification
+###############################################################################
+
+### Get User Progress
+GET {{baseUrl}}/api/{{apiVersion}}/progress
+Authorization: Bearer {{authToken}}
+
+### Get Earned Badges
+GET {{baseUrl}}/api/{{apiVersion}}/progress/badges
+Authorization: Bearer {{authToken}}
+
+### Get Completion Stats
+GET {{baseUrl}}/api/{{apiVersion}}/progress/stats
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# Notifications
+###############################################################################
+
+### Get All Notifications
+GET {{baseUrl}}/api/{{apiVersion}}/notifications
+Authorization: Bearer {{authToken}}
+
+### Register Device for Push Notifications
+POST {{baseUrl}}/api/{{apiVersion}}/notifications/register
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "deviceToken": "fcm-device-token-here",
+  "platform": "web"
+}
+
+### Mark Notification as Read
+PUT {{baseUrl}}/api/{{apiVersion}}/notifications/notification-id-here/read
+Authorization: Bearer {{authToken}}
+
+### Delete Notification
+DELETE {{baseUrl}}/api/{{apiVersion}}/notifications/notification-id-here
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# Testing Error Scenarios
+###############################################################################
+
+### Test Missing Auth Token (Should return 401)
+GET {{baseUrl}}/api/{{apiVersion}}/tasks
+
+### Test Invalid Auth Token (Should return 401)
+GET {{baseUrl}}/api/{{apiVersion}}/tasks
+Authorization: Bearer invalid-token-12345
+
+### Test Non-Existent Route (Should return 404)
+GET {{baseUrl}}/api/{{apiVersion}}/nonexistent
