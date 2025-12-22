@@ -1,0 +1,167 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER MODEL
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  avatarUrl     String?
+  provider      String    // 'google', 'microsoft', 'azure-ad-b2c'
+  providerId    String    // OAuth provider user ID
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  tasks         Task[]
+  progress      UserProgress?
+  userBadges    UserBadge[]
+  notifications Notification[]
+  
+  @@unique([provider, providerId])
+  @@index([email])
+}
+
+// ============================================================================
+// TASK MODEL
+// ============================================================================
+
+model Task {
+  id            String       @id @default(cuid())
+  userId        String
+  title         String
+  description   String?
+  dueDate       DateTime?
+  category      TaskCategory @default(HOMEWORK)
+  priority      Priority     @default(MEDIUM)
+  status        TaskStatus   @default(PENDING)
+  subject       String?
+  xpAwarded     Int          @default(0)
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+  
+  @@index([userId, status])
+  @@index([dueDate])
+  @@index([userId, completedAt])
+}
+
+// ============================================================================
+// USER PROGRESS MODEL
+// ============================================================================
+
+model UserProgress {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  totalXP        Int      @default(0)
+  currentLevel   Int      @default(1)
+  currentStreak  Int      @default(0)
+  longestStreak  Int      @default(0)
+  lastActivityAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([totalXP])
+}
+
+// ============================================================================
+// BADGE MODELS
+// ============================================================================
+
+model Badge {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String
+  icon        String      // emoji or icon name
+  category    String      // 'streak', 'completion', 'milestone', 'special'
+  xpRequired  Int?        // null if criteria-based (e.g., streaks)
+  criteria    String?     // JSON string for complex unlock logic
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  userBadges  UserBadge[]
+  
+  @@index([category])
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+// ============================================================================
+// NOTIFICATION MODEL
+// ============================================================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  taskId      String?
+  type        String   // 'deadline', 'morning_digest', 'streak_reminder', 'badge_earned'
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  scheduledAt DateTime // when to send the notification
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isRead])
+  @@index([scheduledAt, sentAt])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum TaskCategory {
+  HOMEWORK
+  PROJECT
+  TEST
+  QUIZ
+  LOST_ITEM
+  PERSONAL
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+}
