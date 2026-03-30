@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '@/lib/api';
 import type { Task } from '@/lib/types';
@@ -12,27 +13,47 @@ interface TaskCardProps {
 
 export function TaskCard({ task }: TaskCardProps) {
   const queryClient = useQueryClient();
+  const [justCompleted, setJustCompleted] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const completeMutation = useMutation({
     mutationFn: () => tasksApi.complete(task.id),
     onMutate: async () => {
+      // Show strike-through animation immediately, but DON'T move to completed section yet
+      setJustCompleted(true);
+
+      // After 1.5s, apply the real optimistic update (moves to "Done" section)
+      timeoutRef.current = setTimeout(() => {
+        setJustCompleted(false);
+        queryClient.setQueriesData({ queryKey: ['tasks'] }, (old: unknown) => {
+          const prev = old as { data?: Task[] } | undefined;
+          if (!prev?.data) return prev;
+          return {
+            ...prev,
+            data: prev.data.map((t) =>
+              t.id === task.id
+                ? { ...t, status: 'COMPLETED' as const, completedAt: new Date().toISOString(), xpAwarded: 100 }
+                : t
+            ),
+          };
+        });
+      }, 1500);
+
+      // Save previous data for rollback
       await queryClient.cancelQueries({ queryKey: ['tasks'] });
       const previousData = queryClient.getQueriesData({ queryKey: ['tasks'] });
-      queryClient.setQueriesData({ queryKey: ['tasks'] }, (old: unknown) => {
-        const prev = old as { data?: Task[] } | undefined;
-        if (!prev?.data) return prev;
-        return {
-          ...prev,
-          data: prev.data.map((t) =>
-            t.id === task.id
-              ? { ...t, status: 'COMPLETED' as const, completedAt: new Date().toISOString(), xpAwarded: 100 }
-              : t
-          ),
-        };
-      });
       return { previousData };
     },
     onError: (_err, _vars, context) => {
+      setJustCompleted(false);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (context?.previousData) {
         for (const [key, data] of context.previousData) {
           queryClient.setQueryData(key, data);
@@ -41,7 +62,10 @@ export function TaskCard({ task }: TaskCardProps) {
       toast.error('Failed to complete task');
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Refetch after server confirms (will reconcile with real data)
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      }, 1600);
     },
     onSuccess: (response) => {
       const xp = response.meta?.xpAwarded || 0;
@@ -115,10 +139,22 @@ export function TaskCard({ task }: TaskCardProps) {
     },
   });
 
+  // Undo during the 1.5s animation window
+  const undoDuringAnimation = () => {
+    setJustCompleted(false);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    // Revert on server
+    uncompleteMutation.mutate();
+  };
+
   const isCompleted = task.status === 'COMPLETED';
+  const showAsCompleted = isCompleted || justCompleted;
   const isToggling = completeMutation.isPending || uncompleteMutation.isPending;
   const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-  const isOverdue = dueDate && isPast(dueDate) && !isCompleted;
+  const isOverdue = dueDate && isPast(dueDate) && !showAsCompleted;
 
   const getDueDateLabel = () => {
     if (!dueDate) return null;
@@ -135,25 +171,33 @@ export function TaskCard({ task }: TaskCardProps) {
 
   return (
     <div
-      className={`group relative px-3 sm:px-3 py-3 border-b border-border last:border-b-0 transition-colors active:bg-accent/40 sm:hover:bg-accent/40 ${
-        isCompleted ? 'opacity-50' : ''
+      className={`group relative px-3 sm:px-3 py-3 border-b border-border last:border-b-0 transition-all duration-500 active:bg-accent/40 sm:hover:bg-accent/40 ${
+        showAsCompleted ? 'opacity-50' : ''
       }`}
     >
       {/* Top row: checkbox + title + due date */}
       <div className="flex items-start gap-3">
         {/* Checkbox — larger touch target on mobile */}
         <button
-          onClick={() => isCompleted ? uncompleteMutation.mutate() : completeMutation.mutate()}
-          disabled={isToggling}
-          className={`flex-shrink-0 mt-0.5 flex h-5 w-5 sm:h-[18px] sm:w-[18px] items-center justify-center rounded-full border-[1.5px] transition-all ${
-            isCompleted
+          onClick={() => {
+            if (justCompleted) {
+              undoDuringAnimation();
+            } else if (isCompleted) {
+              uncompleteMutation.mutate();
+            } else {
+              completeMutation.mutate();
+            }
+          }}
+          disabled={isToggling && !justCompleted}
+          className={`flex-shrink-0 mt-0.5 flex h-5 w-5 sm:h-[18px] sm:w-[18px] items-center justify-center rounded-full border-[1.5px] transition-all duration-300 ${
+            showAsCompleted
               ? 'border-primary bg-primary hover:bg-primary/70 hover:border-primary/70'
               : isToggling
                 ? 'border-primary/50 animate-pulse'
                 : 'border-muted-foreground/30 hover:border-primary'
           }`}
         >
-          {isCompleted && (
+          {showAsCompleted && (
             <svg className="h-2.5 w-2.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
@@ -163,19 +207,19 @@ export function TaskCard({ task }: TaskCardProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            {task.priority === 'HIGH' && (
+            {task.priority === 'HIGH' && !showAsCompleted && (
               <svg className="h-3.5 w-3.5 flex-shrink-0 text-red-500 fill-red-500" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
               </svg>
             )}
-            <span
-              className={`text-sm truncate ${
-                isCompleted
-                  ? 'line-through text-muted-foreground'
-                  : 'text-foreground font-medium'
-              }`}
-            >
+            <span className="relative text-sm truncate font-medium text-foreground">
               {task.title}
+              {/* Animated strike-through line */}
+              <span
+                className={`absolute left-0 top-1/2 h-[1.5px] bg-muted-foreground transition-all duration-700 ease-out ${
+                  showAsCompleted ? 'w-full' : 'w-0'
+                }`}
+              />
             </span>
           </div>
 
@@ -198,6 +242,12 @@ export function TaskCard({ task }: TaskCardProps) {
             {isCompleted && task.xpAwarded > 0 && (
               <span className="text-[11px] font-medium text-primary">
                 +{task.xpAwarded}
+              </span>
+            )}
+
+            {justCompleted && (
+              <span className="text-[11px] font-medium text-primary animate-pulse">
+                +XP
               </span>
             )}
           </div>
