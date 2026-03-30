@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
@@ -9,9 +11,12 @@ export default function HomePage() {
           Stay Organized, Stay Ahead
         </p>
         <div className="flex gap-4 justify-center">
-          <button className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity">
+          <Link
+            href="/tasks"
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity"
+          >
             Get Started
-          </button>
+          </Link>
           <button className="px-6 py-3 border border-border rounded-lg font-semibold hover:bg-accent transition-colors">
             Learn More
           </button>

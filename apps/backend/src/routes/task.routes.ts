@@ -1,69 +1,145 @@
-import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { taskService } from '../services/task.service';
+import {
+  createTaskSchema,
+  updateTaskSchema,
+  listTasksQuerySchema,
+} from '../validators/task.validator';
 
 const router: Router = Router();
 
 // All task routes require authentication
 router.use(authenticate);
 
-// Placeholder routes - will be implemented later
-router.get('/', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'List tasks endpoint - to be implemented',
-    data: [],
-  });
+// List tasks with filtering, pagination, sorting
+router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const query = listTasksQuerySchema.parse(req.query);
+    const result = await taskService.list(req.user!.id, query);
+
+    res.json({
+      success: true,
+      data: result.tasks,
+      meta: {
+        timestamp: new Date().toISOString(),
+        pagination: result.pagination,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post('/', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Create task endpoint - to be implemented',
-  });
+// Create a new task
+router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const input = createTaskSchema.parse(req.body);
+    const task = await taskService.create(req.user!.id, input);
+
+    res.status(201).json({
+      success: true,
+      data: task,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.get('/upcoming', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Get upcoming tasks endpoint - to be implemented',
-    data: [],
-  });
+// Get upcoming tasks (due in next 7 days)
+router.get('/upcoming', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const tasks = await taskService.getUpcoming(req.user!.id);
+
+    res.json({
+      success: true,
+      data: tasks,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.get('/overdue', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Get overdue tasks endpoint - to be implemented',
-    data: [],
-  });
+// Get overdue tasks
+router.get('/overdue', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const tasks = await taskService.getOverdue(req.user!.id);
+
+    res.json({
+      success: true,
+      data: tasks,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.get('/:id', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Get task endpoint - to be implemented',
-  });
+// Get a single task
+router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const task = await taskService.getById(req.user!.id, req.params.id);
+
+    res.json({
+      success: true,
+      data: task,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.put('/:id', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Update task endpoint - to be implemented',
-  });
+// Update a task
+router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const input = updateTaskSchema.parse(req.body);
+    const task = await taskService.update(req.user!.id, req.params.id, input);
+
+    res.json({
+      success: true,
+      data: task,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.delete('/:id', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Delete task endpoint - to be implemented',
-  });
+// Delete a task
+router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await taskService.delete(req.user!.id, req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Task deleted successfully',
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post('/:id/complete', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Complete task endpoint - to be implemented',
-  });
+// Mark task as complete (awards XP)
+router.post('/:id/complete', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await taskService.complete(req.user!.id, req.params.id);
+
+    res.json({
+      success: true,
+      data: result.task,
+      meta: {
+        timestamp: new Date().toISOString(),
+        xpAwarded: result.xpAwarded,
+        progress: result.progress,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;
