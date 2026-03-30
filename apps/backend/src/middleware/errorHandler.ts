@@ -20,8 +20,11 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
-  // Log error for debugging
-  console.error('Error:', err);
+  // Only log server errors (5xx), not expected client errors (4xx)
+  const sc = (err as AppError).statusCode || 500;
+  if (sc >= 500) {
+    console.error('Error:', err);
+  }
 
   // Handle Zod validation errors
   if (err instanceof ZodError) {
@@ -30,7 +33,7 @@ export const errorHandler = (
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid request data',
-        details: err.errors.map(e => ({
+        details: err.errors.map((e) => ({
           field: e.path.join('.'),
           message: e.message,
         })),
@@ -58,9 +61,7 @@ export const errorHandler = (
 
   // Handle unknown errors
   const statusCode = 500;
-  const message = process.env.NODE_ENV === 'production'
-    ? 'Internal server error'
-    : err.message;
+  const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
 
   return res.status(statusCode).json({
     success: false,

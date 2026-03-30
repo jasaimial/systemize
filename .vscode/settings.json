@@ -39,5 +39,6 @@
   },
   "[prisma]": {
     "editor.defaultFormatter": "Prisma.prisma"
-  }
+  },
+  "prisma.schemaValidation": false
 }
