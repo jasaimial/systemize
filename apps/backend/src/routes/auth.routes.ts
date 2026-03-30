@@ -1,41 +1,50 @@
-import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { authService } from '../services/auth.service';
 
 const router: Router = Router();
 
-// Placeholder routes - will be implemented later
-router.post('/signup', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Signup endpoint - to be implemented',
-  });
+const quickLoginSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50, 'Name too long'),
 });
 
-router.post('/login', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Login endpoint - to be implemented',
-  });
+// Quick login — name only, for test/dev environment
+router.post('/login', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name } = quickLoginSchema.parse(req.body);
+    const result = await authService.quickLogin(name);
+
+    res.json({
+      success: true,
+      data: result,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post('/logout', authenticate, (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Logout endpoint - to be implemented',
-  });
+// Get current user profile
+router.get('/me', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await authService.getMe(req.user!.id);
+    res.json({
+      success: true,
+      data: user,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.get('/me', authenticate, (_req, res) => {
+// Logout — client just discards the token
+router.post('/logout', authenticate, (_req: AuthRequest, res: Response) => {
   res.json({
     success: true,
-    message: 'Get current user endpoint - to be implemented',
-  });
-});
-
-router.post('/refresh', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Refresh token endpoint - to be implemented',
+    message: 'Logged out successfully',
+    meta: { timestamp: new Date().toISOString() },
   });
 });
 

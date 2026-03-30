@@ -1,43 +1,52 @@
-import { Router } from 'express';
-import { authenticate } from '../middleware/auth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticate, AuthRequest } from '../middleware/auth';
+import { progressService } from '../services/progress.service';
 
 const router: Router = Router();
 
 // All progress routes require authentication
 router.use(authenticate);
 
-// Placeholder routes - will be implemented later
-router.get('/', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Get user progress endpoint - to be implemented',
-    data: {
-      totalXP: 0,
-      currentLevel: 1,
-      currentStreak: 0,
-      longestStreak: 0,
-    },
-  });
+// Get user progress (XP, level, streak)
+router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const progress = await progressService.getProgress(req.user!.id);
+    res.json({
+      success: true,
+      data: progress,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.get('/badges', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Get earned badges endpoint - to be implemented',
-    data: [],
-  });
+// Get badges (earned + locked)
+router.get('/badges', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const badges = await progressService.getBadges(req.user!.id);
+    res.json({
+      success: true,
+      data: badges,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.get('/stats', (_req, res) => {
-  res.json({
-    success: true,
-    message: 'Get completion stats endpoint - to be implemented',
-    data: {
-      completionRate: 0,
-      totalTasks: 0,
-      completedTasks: 0,
-    },
-  });
+// Get completion stats
+router.get('/stats', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const stats = await progressService.getStats(req.user!.id);
+    res.json({
+      success: true,
+      data: stats,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

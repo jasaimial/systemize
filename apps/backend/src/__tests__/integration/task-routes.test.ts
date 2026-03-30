@@ -161,7 +161,7 @@ describe('Task Routes', () => {
       expect(response.body.data).toHaveLength(1);
       expect(response.body.meta.pagination).toEqual({
         page: 1,
-        limit: 20,
+        limit: 500,
         total: 1,
         totalPages: 1,
       });
@@ -380,6 +380,11 @@ describe('Task Routes', () => {
       prismaMock.task.update.mockResolvedValue(completedTask);
       prismaMock.userProgress.upsert.mockResolvedValue(progress);
       prismaMock.userProgress.update.mockResolvedValue(progress);
+      // Badge service mocks
+      prismaMock.task.count.mockResolvedValue(1);
+      prismaMock.userBadge.findMany.mockResolvedValue([]);
+      prismaMock.badge.findMany.mockResolvedValue([]);
+      prismaMock.task.aggregate.mockResolvedValue({ _sum: { xpAwarded: 100 } } as never);
 
       const response = await request(app)
         .post('/api/v1/tasks/task-1/complete')

@@ -6,6 +6,7 @@ import {
   UpdateTaskInput,
   ListTasksQuery,
 } from '../validators/task.validator';
+import { badgeService } from './badge.service';
 
 // XP award rules from product spec
 const XP_RULES = {
@@ -208,10 +209,14 @@ export class TaskService {
     // Update user progress
     const progress = await this.updateUserProgress(userId, xp);
 
+    // Check for new badge unlocks
+    const newBadges = await badgeService.checkAndAwardBadges(userId);
+
     return {
       task: completedTask,
       xpAwarded: xp,
       progress,
+      newBadges,
     };
   }
 

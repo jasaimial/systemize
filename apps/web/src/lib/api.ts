@@ -84,4 +84,35 @@ export const tasksApi = {
   },
 };
 
+// Auth API
+export const authApi = {
+  login: async (name: string) => {
+    const { data } = await api.post<ApiResponse<{ token: string; user: { id: string; name: string; email: string } }>>('/auth/login', { name });
+    return data;
+  },
+
+  me: async () => {
+    const { data } = await api.get<ApiResponse<{ id: string; name: string; email: string; progress: UserProgress | null; badgeCount: number }>>('/auth/me');
+    return data;
+  },
+};
+
+// Progress API
+export const progressApi = {
+  getProgress: async () => {
+    const { data } = await api.get<ApiResponse<UserProgress & { xpToNextLevel: number; levelProgress: number }>>('/progress');
+    return data;
+  },
+
+  getBadges: async () => {
+    const { data } = await api.get<ApiResponse<Array<{ id: string; name: string; description: string; icon: string; earned: boolean; earnedAt: string | null }>>>('/progress/badges');
+    return data;
+  },
+
+  getStats: async () => {
+    const { data } = await api.get<ApiResponse<{ totalTasks: number; completedTasks: number; pendingTasks: number; completionRate: number; totalXPEarned: number }>>('/progress/stats');
+    return data;
+  },
+};
+
 export default api;

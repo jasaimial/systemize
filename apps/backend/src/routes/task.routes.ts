@@ -135,6 +135,7 @@ router.post('/:id/complete', async (req: AuthRequest, res: Response, next: NextF
         timestamp: new Date().toISOString(),
         xpAwarded: result.xpAwarded,
         progress: result.progress,
+        newBadges: result.newBadges,
       },
     });
   } catch (error) {
