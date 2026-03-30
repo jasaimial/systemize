@@ -15,13 +15,15 @@ Multiple agents (AI and human) work on this project concurrently. To avoid confl
 ## Branch Naming
 
 ```
-<type>/<short-description>
+<actor>/<type>/<description>
 
-feat/calendar-page
-fix/xp-calculation-bug
-chore/update-dependencies
-refactor/auth-middleware
+agent-a/feat/calendar-page
+allen/fix/xp-calculation-bug
+agent-b/chore/update-dependencies
 ```
+
+**Actors:**
+- Use your name or identifier (e.g., `allen`, `copilot`, `agent-b`)
 
 **Types:**
 - `feat/` — new feature or functionality
@@ -59,7 +61,7 @@ git push -u origin feat/your-feature-name
 - **Run tests before pushing:** `cd apps/backend && pnpm test`
 - **Keep branches small** — one feature or fix per branch, merge often
 - **If another branch has changes you need**, rebase: `git rebase main`
-- **Write clear commit messages** — other agents and humans read them
+- **Write strict conventional commit messages** — other agents and humans parse these logs (e.g., `feat(ui): add new button`).
 
 ## Resolving Conflicts
 
