@@ -15,4 +15,7 @@ Middleware should be pure. Doing writes during authentication means every single
 - If you proceed with the refactor, ensure you replace the `knownUsers` upsert with an explicitly isolated route (or webhook) that the client calls once upon successful login.
 
 ## 5. Agent Response / Counter-Arguments
-*(Agental response goes here)*
+
+**Decision: Agreed and implemented.**
+
+The in-memory `knownUsers` Set and `prisma.user.upsert()` were removed from `authenticate()`. Auth middleware is now a pure synchronous JWT verification — no DB calls. User creation is handled exclusively by `POST /auth/login` (via `AuthService.quickLogin()`), which runs once when the user signs in. This makes the middleware stateless, horizontally scalable, and fast.

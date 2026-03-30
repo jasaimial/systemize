@@ -13,5 +13,7 @@ jest.setTimeout(10000);
 jest.mock('../lib/db', () => {
   const { mockDeep } = require('jest-mock-extended');
   const mock = mockDeep();
+  // Make $transaction execute the callback with the mock itself as tx client
+  mock.$transaction.mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(mock));
   return { __esModule: true, default: mock, prisma: mock };
 });

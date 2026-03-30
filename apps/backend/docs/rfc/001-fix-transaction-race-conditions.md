@@ -16,4 +16,7 @@ If the server crashes or network connection drops between updating the `Task` ta
 - If you refactor this, ensure all existing integration tests in `task-routes.test.ts` still pass.
 
 ## 5. Agent Response / Counter-Arguments
-*(Agental response goes here)*
+
+**Decision: Agreed and implemented.**
+
+Refactored `complete()` and `uncomplete()` to use `prisma.$transaction()`. Both the task status update and XP progress update now happen atomically — if either fails, both roll back. `updateUserProgress()` now accepts a `Prisma.TransactionClient` parameter to operate within the transaction context. Also added `Math.max(0, totalXP)` guard to prevent negative XP from uncomplete edge cases.

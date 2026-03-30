@@ -169,7 +169,8 @@ export class TaskService {
   }
 
   /**
-   * Mark a task as complete, calculate and award XP
+   * Mark a task as complete, calculate and award XP.
+   * Uses a transaction to ensure task + progress are updated atomically.
    */
   async complete(userId: string, taskId: string) {
     const task = await this.getById(userId, taskId);
@@ -184,32 +185,33 @@ export class TaskService {
 
     if (task.dueDate) {
       if (now > task.dueDate) {
-        // Overdue completion
         xp = XP_RULES.OVERDUE;
       } else {
         const msUntilDue = task.dueDate.getTime() - now.getTime();
         const hoursUntilDue = msUntilDue / (1000 * 60 * 60);
         if (hoursUntilDue > 24) {
-          // Early completion (>1 day before due)
           xp = XP_RULES.EARLY;
         }
       }
     }
 
-    // Update task
-    const completedTask = await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        status: 'COMPLETED',
-        completedAt: now,
-        xpAwarded: xp,
-      },
+    // Atomic transaction: update task + progress together
+    const [completedTask, progress] = await prisma.$transaction(async (tx) => {
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          status: 'COMPLETED',
+          completedAt: now,
+          xpAwarded: xp,
+        },
+      });
+
+      const updatedProgress = await this.updateUserProgress(tx, userId, xp);
+
+      return [updatedTask, updatedProgress];
     });
 
-    // Update user progress
-    const progress = await this.updateUserProgress(userId, xp);
-
-    // Check for new badge unlocks
+    // Badge checking can happen outside the transaction (non-critical)
     const newBadges = await badgeService.checkAndAwardBadges(userId);
 
     return {
@@ -221,7 +223,8 @@ export class TaskService {
   }
 
   /**
-   * Undo task completion — reverts status and deducts XP
+   * Undo task completion — reverts status and deducts XP.
+   * Uses a transaction for atomicity.
    */
   async uncomplete(userId: string, taskId: string) {
     const task = await this.getById(userId, taskId);
@@ -232,18 +235,20 @@ export class TaskService {
 
     const xpToDeduct = task.xpAwarded;
 
-    // Revert task
-    const revertedTask = await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        status: 'PENDING',
-        completedAt: null,
-        xpAwarded: 0,
-      },
-    });
+    const [revertedTask, progress] = await prisma.$transaction(async (tx) => {
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          status: 'PENDING',
+          completedAt: null,
+          xpAwarded: 0,
+        },
+      });
 
-    // Deduct XP from user progress
-    const progress = await this.updateUserProgress(userId, -xpToDeduct);
+      const updatedProgress = await this.updateUserProgress(tx, userId, -xpToDeduct);
+
+      return [updatedTask, updatedProgress];
+    });
 
     return {
       task: revertedTask,
@@ -253,15 +258,20 @@ export class TaskService {
   }
 
   /**
-   * Update user progress: XP, level, streak
+   * Update user progress atomically within a transaction.
+   * Uses Prisma's increment for XP to avoid read-modify-write races.
    */
-  private async updateUserProgress(userId: string, xpToAdd: number) {
-    // Upsert progress record
-    const progress = await prisma.userProgress.upsert({
+  private async updateUserProgress(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    xpToAdd: number,
+  ) {
+    // Upsert with atomic increment
+    const progress = await tx.userProgress.upsert({
       where: { userId },
       create: {
         userId,
-        totalXP: xpToAdd,
+        totalXP: Math.max(0, xpToAdd),
         currentLevel: 1,
         currentStreak: 1,
         longestStreak: 1,
@@ -273,15 +283,15 @@ export class TaskService {
       },
     });
 
-    // Calculate new level based on XP thresholds from product spec
-    const newLevel = this.calculateLevel(progress.totalXP);
-
-    // Update streak
+    // Ensure XP never goes negative
+    const safeXP = Math.max(0, progress.totalXP);
+    const newLevel = this.calculateLevel(safeXP);
     const streakData = this.calculateStreak(progress);
 
-    const updatedProgress = await prisma.userProgress.update({
+    const updatedProgress = await tx.userProgress.update({
       where: { userId },
       data: {
+        totalXP: safeXP,
         currentLevel: newLevel,
         ...streakData,
       },

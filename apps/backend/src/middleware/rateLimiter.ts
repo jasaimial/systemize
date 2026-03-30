@@ -1,6 +1,9 @@
 import rateLimit from 'express-rate-limit';
 import { config } from '../config/env';
 
+// TODO: When scaling horizontally (multiple App Service instances / K8s pods),
+// switch to rate-limit-redis for shared rate limit state across instances.
+// See RFC 003: apps/backend/docs/rfc/003-distributed-rate-limiting.md
 export const rateLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.maxRequests,

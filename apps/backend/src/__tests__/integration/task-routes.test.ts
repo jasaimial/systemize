@@ -26,6 +26,10 @@ describe('Task Routes', () => {
 
   beforeEach(() => {
     mockReset(prismaMock);
+    // Re-setup $transaction to execute callback with mock as tx client
+    (prismaMock.$transaction as jest.Mock).mockImplementation((fn: unknown) =>
+      typeof fn === 'function' ? fn(prismaMock) : Promise.resolve(fn)
+    );
   });
 
   // Sample task data returned from Prisma

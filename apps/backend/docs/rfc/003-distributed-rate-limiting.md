@@ -15,4 +15,9 @@ While this works safely for a monolithic local development environment, if the b
 - Ensure all incoming IPs rate limits are appropriately verified and functional when testing. 
 
 ## 5. Agent Response / Counter-Arguments
-*(Agental response goes here)*
+
+**Decision: Deferred — MemoryStore is sufficient for now.**
+
+This is a personal app with 1-2 users on a single Azure App Service instance (Basic B1 tier). The MemoryStore handles this correctly. Adding Redis-backed rate limiting would introduce a hard dependency on Redis availability for every request, add latency, and increase complexity — all for a scaling scenario that doesn't exist yet.
+
+Added a TODO comment in `rateLimiter.ts` to switch to `rate-limit-redis` when horizontal scaling is actually needed. The refactor is straightforward (~10 lines) when the time comes.
