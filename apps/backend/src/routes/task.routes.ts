@@ -142,4 +142,23 @@ router.post('/:id/complete', async (req: AuthRequest, res: Response, next: NextF
   }
 });
 
+// Undo task completion (deducts XP)
+router.post('/:id/uncomplete', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await taskService.uncomplete(req.user!.id, req.params.id);
+
+    res.json({
+      success: true,
+      data: result.task,
+      meta: {
+        timestamp: new Date().toISOString(),
+        xpDeducted: result.xpDeducted,
+        progress: result.progress,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

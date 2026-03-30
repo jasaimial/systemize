@@ -216,6 +216,38 @@ export class TaskService {
   }
 
   /**
+   * Undo task completion — reverts status and deducts XP
+   */
+  async uncomplete(userId: string, taskId: string) {
+    const task = await this.getById(userId, taskId);
+
+    if (task.status !== 'COMPLETED') {
+      throw new AppError(400, 'Task is not completed', 'TASK_NOT_COMPLETED');
+    }
+
+    const xpToDeduct = task.xpAwarded;
+
+    // Revert task
+    const revertedTask = await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        status: 'PENDING',
+        completedAt: null,
+        xpAwarded: 0,
+      },
+    });
+
+    // Deduct XP from user progress
+    const progress = await this.updateUserProgress(userId, -xpToDeduct);
+
+    return {
+      task: revertedTask,
+      xpDeducted: xpToDeduct,
+      progress,
+    };
+  }
+
+  /**
    * Update user progress: XP, level, streak
    */
   private async updateUserProgress(userId: string, xpToAdd: number) {
