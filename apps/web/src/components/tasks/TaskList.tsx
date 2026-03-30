@@ -25,31 +25,33 @@ export function TaskList() {
   const tasks = response?.data || [];
   const pagination = response?.meta?.pagination;
 
-  // Group tasks: overdue first, then pending, then completed
-  const groupedTasks = {
-    overdue: tasks.filter(
-      (t) => t.status === 'PENDING' && t.dueDate && new Date(t.dueDate) < new Date()
-    ),
-    pending: tasks.filter(
-      (t) =>
-        t.status === 'PENDING' &&
-        (!t.dueDate || new Date(t.dueDate) >= new Date())
-    ),
-    completed: tasks.filter((t) => t.status === 'COMPLETED'),
-  };
+  // Group: overdue → pending → completed
+  const overdueTasks = tasks.filter(
+    (t) => t.status === 'PENDING' && t.dueDate && new Date(t.dueDate) < new Date()
+  );
+  const pendingTasks = tasks.filter(
+    (t) => t.status === 'PENDING' && (!t.dueDate || new Date(t.dueDate) >= new Date())
+  );
+  const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
 
   if (error) {
     const isAuthError = (error as Error & { response?: { status?: number } })?.response?.status === 401;
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6 text-center">
-        <p className="text-destructive font-medium">
-          {isAuthError
-            ? 'Authentication required. Please set your token.'
-            : 'Failed to load tasks'}
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center mb-3">
+          <svg className="h-5 w-5 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+        <p className="text-sm font-medium text-foreground">
+          {isAuthError ? 'Session expired' : 'Failed to load tasks'}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {isAuthError ? 'Please sign in again.' : 'Check your connection and try again.'}
         </p>
         <button
           onClick={() => refetch()}
-          className="mt-2 text-sm text-muted-foreground hover:text-foreground underline"
+          className="mt-3 text-xs text-primary hover:underline"
         >
           Try again
         </button>
@@ -59,151 +61,172 @@ export function TaskList() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
+          <h1 className="text-lg font-semibold text-foreground">Tasks</h1>
           {pagination && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {pagination.total} task{pagination.total !== 1 ? 's' : ''} total
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {pagination.total} total
             </p>
           )}
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
+          className={`flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-colors ${
+            showForm
+              ? 'text-muted-foreground hover:text-foreground'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+          }`}
         >
           {showForm ? (
-            'Close'
+            'Cancel'
           ) : (
             <>
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              Add Task
+              New task
             </>
           )}
         </button>
       </div>
 
-      {/* Create form */}
+      {/* Quick add form */}
       {showForm && (
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <h2 className="text-lg font-semibold mb-3">New Task</h2>
-          <TaskForm
-            onSuccess={() => setShowForm(false)}
-            onCancel={() => setShowForm(false)}
-          />
-        </div>
+        <TaskForm
+          onSuccess={() => setShowForm(false)}
+          onCancel={() => setShowForm(false)}
+        />
       )}
 
       {/* Filters */}
       <TaskFiltersBar onFilterChange={setFilters} />
 
-      {/* Loading state */}
+      {/* Loading skeleton */}
       {isLoading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-lg border border-border p-4 animate-pulse">
-              <div className="flex items-start gap-3">
-                <div className="h-5 w-5 rounded-full bg-muted" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-1/3 rounded bg-muted" />
-                  <div className="h-3 w-2/3 rounded bg-muted" />
-                  <div className="flex gap-2">
-                    <div className="h-5 w-16 rounded-full bg-muted" />
-                    <div className="h-5 w-20 rounded-full bg-muted" />
-                  </div>
-                </div>
-              </div>
+        <div className="rounded-lg border border-border overflow-hidden">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 animate-pulse">
+              <div className="h-[18px] w-[18px] rounded-full bg-muted" />
+              <div className="h-2 w-2 rounded-full bg-muted" />
+              <div className="h-3 rounded bg-muted flex-1 max-w-[200px]" />
             </div>
           ))}
         </div>
       )}
 
-      {/* Task sections */}
+      {/* Empty state */}
       {!isLoading && tasks.length === 0 && (
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
-          <p className="text-4xl mb-3">📋</p>
-          <p className="text-lg font-medium text-foreground">No tasks yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Click &quot;Add Task&quot; to get started!
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="h-12 w-12 rounded-xl bg-secondary flex items-center justify-center mb-4">
+            <svg className="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium text-foreground">No tasks</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Create your first task to get started.
           </p>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="mt-4 text-xs text-primary hover:underline font-medium"
+            >
+              + New task
+            </button>
+          )}
         </div>
       )}
 
-      {!isLoading && (
-        <div className="space-y-6">
+      {/* Task groups */}
+      {!isLoading && tasks.length > 0 && (
+        <div className="space-y-5">
           {/* Overdue */}
-          {groupedTasks.overdue.length > 0 && (
-            <section>
-              <h2 className="text-sm font-semibold text-destructive uppercase tracking-wide mb-2">
-                Overdue ({groupedTasks.overdue.length})
-              </h2>
-              <div className="space-y-2">
-                {groupedTasks.overdue.map((task) => (
-                  <TaskCard key={task.id} task={task} />
-                ))}
-              </div>
-            </section>
+          {overdueTasks.length > 0 && (
+            <TaskSection label="Overdue" count={overdueTasks.length} variant="destructive">
+              {overdueTasks.map((task) => (
+                <TaskCard key={task.id} task={task} />
+              ))}
+            </TaskSection>
           )}
 
-          {/* Pending */}
-          {groupedTasks.pending.length > 0 && (
-            <section>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                Pending ({groupedTasks.pending.length})
-              </h2>
-              <div className="space-y-2">
-                {groupedTasks.pending.map((task) => (
-                  <TaskCard key={task.id} task={task} />
-                ))}
-              </div>
-            </section>
+          {/* Active */}
+          {pendingTasks.length > 0 && (
+            <TaskSection label="Active" count={pendingTasks.length}>
+              {pendingTasks.map((task) => (
+                <TaskCard key={task.id} task={task} />
+              ))}
+            </TaskSection>
           )}
 
           {/* Completed */}
-          {groupedTasks.completed.length > 0 && (
-            <section>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                Completed ({groupedTasks.completed.length})
-              </h2>
-              <div className="space-y-2">
-                {groupedTasks.completed.map((task) => (
-                  <TaskCard key={task.id} task={task} />
-                ))}
-              </div>
-            </section>
+          {completedTasks.length > 0 && (
+            <TaskSection label="Done" count={completedTasks.length} variant="muted">
+              {completedTasks.map((task) => (
+                <TaskCard key={task.id} task={task} />
+              ))}
+            </TaskSection>
           )}
         </div>
       )}
 
       {/* Pagination */}
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-4">
+        <div className="flex items-center justify-center gap-3 pt-2">
           <button
-            onClick={() =>
-              setFilters((prev) => ({ ...prev, page: (prev.page || 1) - 1 }))
-            }
+            onClick={() => setFilters((prev) => ({ ...prev, page: (prev.page || 1) - 1 }))}
             disabled={!pagination.page || pagination.page <= 1}
-            className="px-3 py-1.5 text-sm rounded-md border border-input bg-background text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="text-xs h-7 px-3 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Previous
           </button>
-          <span className="text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {pagination.page} / {pagination.totalPages}
           </span>
           <button
-            onClick={() =>
-              setFilters((prev) => ({ ...prev, page: (prev.page || 1) + 1 }))
-            }
+            onClick={() => setFilters((prev) => ({ ...prev, page: (prev.page || 1) + 1 }))}
             disabled={pagination.page >= pagination.totalPages}
-            className="px-3 py-1.5 text-sm rounded-md border border-input bg-background text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="text-xs h-7 px-3 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Next
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+function TaskSection({
+  label,
+  count,
+  variant,
+  children,
+}: {
+  label: string;
+  count: number;
+  variant?: 'destructive' | 'muted';
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-1.5 px-3">
+        <h2
+          className={`text-[11px] font-semibold uppercase tracking-wider ${
+            variant === 'destructive'
+              ? 'text-destructive'
+              : 'text-muted-foreground'
+          }`}
+        >
+          {label}
+        </h2>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {count}
+        </span>
+      </div>
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {children}
+      </div>
+    </section>
   );
 }

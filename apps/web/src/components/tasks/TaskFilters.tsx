@@ -3,8 +3,14 @@
 import { useState } from 'react';
 import type { TaskCategory, Priority, TaskStatus } from '@/lib/types';
 
+const STATUSES: { value: TaskStatus | ''; label: string }[] = [
+  { value: '', label: 'All' },
+  { value: 'PENDING', label: 'Active' },
+  { value: 'COMPLETED', label: 'Done' },
+];
+
 const CATEGORIES: { value: TaskCategory | ''; label: string }[] = [
-  { value: '', label: 'All Categories' },
+  { value: '', label: 'All types' },
   { value: 'HOMEWORK', label: '📝 Homework' },
   { value: 'PROJECT', label: '🔬 Project' },
   { value: 'TEST', label: '📋 Test' },
@@ -14,17 +20,10 @@ const CATEGORIES: { value: TaskCategory | ''; label: string }[] = [
 ];
 
 const PRIORITIES: { value: Priority | ''; label: string }[] = [
-  { value: '', label: 'All Priorities' },
+  { value: '', label: 'All priorities' },
   { value: 'HIGH', label: 'High' },
   { value: 'MEDIUM', label: 'Medium' },
   { value: 'LOW', label: 'Low' },
-];
-
-const STATUSES: { value: TaskStatus | ''; label: string }[] = [
-  { value: '', label: 'All Statuses' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'COMPLETED', label: 'Completed' },
-  { value: 'OVERDUE', label: 'Overdue' },
 ];
 
 interface TaskFiltersBarProps {
@@ -64,23 +63,31 @@ export function TaskFiltersBar({ onFilterChange }: TaskFiltersBarProps) {
   const hasActiveFilters = status || category || priority;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <select
-        value={status}
-        onChange={(e) => handleChange('status', e.target.value)}
-        className="px-3 py-1.5 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-      >
+    <div className="flex items-center gap-1.5">
+      {/* Status tabs */}
+      <div className="flex items-center rounded-md border border-border bg-secondary/50 p-0.5">
         {STATUSES.map((s) => (
-          <option key={s.value} value={s.value}>
+          <button
+            key={s.value}
+            onClick={() => handleChange('status', s.value)}
+            className={`text-[11px] px-2.5 py-1 rounded-[4px] font-medium transition-colors ${
+              status === s.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
             {s.label}
-          </option>
+          </button>
         ))}
-      </select>
+      </div>
 
+      <span className="w-px h-4 bg-border" />
+
+      {/* Dropdowns */}
       <select
         value={category}
         onChange={(e) => handleChange('category', e.target.value)}
-        className="px-3 py-1.5 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="text-[11px] h-7 px-2 rounded-md border border-border bg-background text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
       >
         {CATEGORIES.map((c) => (
           <option key={c.value} value={c.value}>
@@ -92,7 +99,7 @@ export function TaskFiltersBar({ onFilterChange }: TaskFiltersBarProps) {
       <select
         value={priority}
         onChange={(e) => handleChange('priority', e.target.value)}
-        className="px-3 py-1.5 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="text-[11px] h-7 px-2 rounded-md border border-border bg-background text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
       >
         {PRIORITIES.map((p) => (
           <option key={p.value} value={p.value}>
@@ -109,9 +116,9 @@ export function TaskFiltersBar({ onFilterChange }: TaskFiltersBarProps) {
             setPriority('');
             onFilterChange({});
           }}
-          className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="text-[11px] h-7 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
-          Clear filters
+          Clear
         </button>
       )}
     </div>
