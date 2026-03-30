@@ -16,13 +16,13 @@ describe('Authentication Middleware', () => {
   });
 
   describe('authenticate', () => {
-    it('should call next() with valid token', () => {
+    it('should call next() with valid token', async () => {
       const token = generateTestToken();
       mockRequest.headers = {
         authorization: `Bearer ${token}`,
       };
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      await authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith();
       expect(mockRequest.user).toBeDefined();
@@ -30,8 +30,8 @@ describe('Authentication Middleware', () => {
       expect(mockRequest.user?.email).toBe('test@example.com');
     });
 
-    it('should call next() with AppError when no authorization header', () => {
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+    it('should call next() with AppError when no authorization header', async () => {
+      await authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -41,12 +41,12 @@ describe('Authentication Middleware', () => {
       );
     });
 
-    it('should call next() with AppError when authorization header does not start with Bearer', () => {
+    it('should call next() with AppError when authorization header does not start with Bearer', async () => {
       mockRequest.headers = {
         authorization: 'InvalidFormat token',
       };
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      await authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -56,13 +56,13 @@ describe('Authentication Middleware', () => {
       );
     });
 
-    it('should call next() with AppError for invalid token', () => {
+    it('should call next() with AppError for invalid token', async () => {
       const invalidToken = generateInvalidToken();
       mockRequest.headers = {
         authorization: `Bearer ${invalidToken}`,
       };
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      await authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -72,13 +72,13 @@ describe('Authentication Middleware', () => {
       );
     });
 
-    it('should call next() with AppError for expired token', () => {
+    it('should call next() with AppError for expired token', async () => {
       const expiredToken = generateExpiredToken();
       mockRequest.headers = {
         authorization: `Bearer ${expiredToken}`,
       };
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      await authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -90,7 +90,7 @@ describe('Authentication Middleware', () => {
       );
     });
 
-    it('should attach user data to request object with valid token', () => {
+    it('should attach user data to request object with valid token', async () => {
       const token = generateTestToken({
         id: 'custom-id',
         email: 'custom@example.com',
@@ -100,7 +100,7 @@ describe('Authentication Middleware', () => {
         authorization: `Bearer ${token}`,
       };
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      await authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
 
       expect(mockRequest.user).toMatchObject({
         id: 'custom-id',

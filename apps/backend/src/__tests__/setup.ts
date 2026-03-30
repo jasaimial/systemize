@@ -8,3 +8,10 @@ process.env.FRONTEND_URL = 'http://localhost:3000';
 
 // Increase test timeout for integration tests
 jest.setTimeout(10000);
+
+// Mock Prisma globally for all tests (unless overridden per-file)
+jest.mock('../lib/db', () => {
+  const { mockDeep } = require('jest-mock-extended');
+  const mock = mockDeep();
+  return { __esModule: true, default: mock, prisma: mock };
+});

@@ -3,25 +3,13 @@ import express from 'express';
 import { mockReset, DeepMockProxy } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 
-// Mock Prisma before importing routes
-const mockPrismaClient = (() => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { mockDeep } = require('jest-mock-extended');
-  return mockDeep();
-})();
-
-jest.mock('../../lib/db', () => ({
-  __esModule: true,
-  default: mockPrismaClient,
-  prisma: mockPrismaClient,
-}));
-
 import { errorHandler } from '../../middleware/errorHandler';
 import routes from '../../routes';
 import { config } from '../../config/env';
 import { generateTestToken } from '../helpers/testUtils';
+import prisma from '../../lib/db';
 
-const prismaMock = mockPrismaClient as DeepMockProxy<PrismaClient>;
+const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>;
 
 describe('Task Routes', () => {
   let app: express.Application;
