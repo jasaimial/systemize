@@ -8,12 +8,12 @@ import { config } from '../src/config/env';
  */
 
 const payload = {
-  id: 'test-user-123',
+  id: 'test-user-id',
   email: 'test@example.com',
   provider: 'google',
 };
 
-const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '24h' });
+const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '30d' });
 
 console.log('\n✨ Test JWT Token Generated!\n');
 console.log('Token (valid for 24 hours):');

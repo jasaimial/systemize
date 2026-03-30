@@ -1,13 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { tasksApi } from '@/lib/api';
+import type { Task } from '@/lib/types';
 import { TaskCard } from './TaskCard';
 import { TaskForm } from './TaskForm';
+import { isToday, isThisWeek, isPast, isFuture, endOfWeek, startOfWeek, addWeeks, endOfMonth } from 'date-fns';
+
+type DateFilter = 'all' | 'overdue' | 'today' | 'this-week' | 'next-week' | 'this-month';
+
+const FILTERS: { value: DateFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'today', label: 'Today' },
+  { value: 'this-week', label: 'This week' },
+];
+
+const MORE_FILTERS: { value: DateFilter; label: string }[] = [
+  { value: 'next-week', label: 'Next week' },
+  { value: 'this-month', label: 'This month' },
+];
+
+function matchesFilter(task: Task, filter: DateFilter): boolean {
+  const due = task.dueDate ? new Date(task.dueDate) : null;
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'overdue':
+      return !!due && isPast(due);
+    case 'today':
+      return !!due && isToday(due);
+    case 'this-week':
+      return !!due && isThisWeek(due, { weekStartsOn: 1 });
+    case 'next-week': {
+      if (!due) return false;
+      const nextWeekStart = startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+      const nextWeekEnd = endOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 });
+      return due >= nextWeekStart && due <= nextWeekEnd;
+    }
+    case 'this-month':
+      return !!due && due <= endOfMonth(new Date()) && isFuture(due);
+    default:
+      return true;
+  }
+}
 
 export function TaskList() {
   const [showForm, setShowForm] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<DateFilter>('all');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showMoreFilters) return;
+    const handleClick = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setShowMoreFilters(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showMoreFilters]);
 
   const {
     data: response,
@@ -16,20 +71,26 @@ export function TaskList() {
     refetch,
   } = useQuery({
     queryKey: ['tasks'],
-    queryFn: () => tasksApi.list(),
+    queryFn: () => tasksApi.list({ status: 'PENDING', limit: 500, sortBy: 'dueDate', sortOrder: 'asc' }),
   });
 
-  const tasks = response?.data || [];
+  const allTasks = response?.data || [];
   const pagination = response?.meta?.pagination;
 
-  // Group: overdue → pending → completed
+  // Apply date filter
+  const tasks = useMemo(
+    () => allTasks.filter((t) => matchesFilter(t, activeFilter)),
+    [allTasks, activeFilter]
+  );
+
+  // Group filtered tasks
   const overdueTasks = tasks.filter(
-    (t) => t.status === 'PENDING' && t.dueDate && new Date(t.dueDate) < new Date()
+    (t) => t.dueDate && new Date(t.dueDate) < new Date()
   );
-  const pendingTasks = tasks.filter(
-    (t) => t.status === 'PENDING' && (!t.dueDate || new Date(t.dueDate) >= new Date())
+  const upcomingTasks = tasks.filter(
+    (t) => t.dueDate && new Date(t.dueDate) >= new Date()
   );
-  const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
+  const noDueDateTasks = tasks.filter((t) => !t.dueDate);
 
   if (error) {
     const isAuthError = (error as Error & { response?: { status?: number } })?.response?.status === 401;
@@ -58,15 +119,65 @@ export function TaskList() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          {pagination && (
-            <p className="text-xs text-muted-foreground">
-              {pagination.total} task{pagination.total !== 1 ? 's' : ''}
-            </p>
+      {/* Filter chips */}
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1 -mb-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => { setActiveFilter(f.value); setShowMoreFilters(false); }}
+            className={`flex-shrink-0 text-xs h-8 px-3 rounded-full font-medium transition-colors ${
+              activeFilter === f.value
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-muted-foreground active:bg-accent sm:hover:bg-accent hover:text-foreground'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+
+        {/* More dropdown */}
+        <div className="relative flex-shrink-0" ref={moreRef}>
+          <button
+            onClick={() => setShowMoreFilters(!showMoreFilters)}
+            className={`flex items-center gap-1 text-xs h-8 px-3 rounded-full font-medium transition-colors ${
+              MORE_FILTERS.some((f) => f.value === activeFilter)
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-muted-foreground active:bg-accent sm:hover:bg-accent hover:text-foreground'
+            }`}
+          >
+            {MORE_FILTERS.find((f) => f.value === activeFilter)?.label || (
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            )}
+          </button>
+          {showMoreFilters && (
+            <div className="absolute top-full left-0 mt-1 z-50 rounded-lg border border-border bg-card shadow-lg overflow-hidden min-w-[120px]">
+              {MORE_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => { setActiveFilter(f.value); setShowMoreFilters(false); }}
+                  className={`w-full text-left text-xs px-3 py-2.5 transition-colors ${
+                    activeFilter === f.value
+                      ? 'bg-accent text-foreground font-medium'
+                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground active:bg-accent'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
+
+        {/* Task count */}
+        <span className="flex-shrink-0 text-[11px] text-muted-foreground tabular-nums ml-auto">
+          {tasks.length}{activeFilter !== 'all' ? ` / ${allTasks.length}` : ''} task{tasks.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Desktop new task button */}
+      <div className="flex items-center justify-end -mt-2">
         {/* Desktop button */}
         <button
           onClick={() => setShowForm(!showForm)}
@@ -145,19 +256,19 @@ export function TaskList() {
             </TaskSection>
           )}
 
-          {/* Active */}
-          {pendingTasks.length > 0 && (
-            <TaskSection label="Active" count={pendingTasks.length}>
-              {pendingTasks.map((task) => (
+          {/* Upcoming */}
+          {upcomingTasks.length > 0 && (
+            <TaskSection label="Upcoming" count={upcomingTasks.length}>
+              {upcomingTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
             </TaskSection>
           )}
 
-          {/* Completed */}
-          {completedTasks.length > 0 && (
-            <TaskSection label="Done" count={completedTasks.length} variant="muted">
-              {completedTasks.map((task) => (
+          {/* No due date */}
+          {noDueDateTasks.length > 0 && (
+            <TaskSection label="No date" count={noDueDateTasks.length} variant="muted">
+              {noDueDateTasks.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
             </TaskSection>

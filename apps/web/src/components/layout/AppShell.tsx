@@ -2,7 +2,9 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/store';
+import { tasksApi } from '@/lib/api';
 
 const NAV_ITEMS = [
   {
@@ -59,6 +61,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Derive page title from current path
   const pageTitle = NAV_ITEMS.find((item) => item.href === pathname)?.label || 'Systemize';
 
+  // Pending task count for badge — reuses the same query key as TaskList
+  const { data: tasksResponse } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => tasksApi.list({ status: 'PENDING', limit: 500, sortBy: 'dueDate', sortOrder: 'asc' }),
+    staleTime: 30 * 1000,
+  });
+  const pendingCount = (tasksResponse?.data || []).filter(
+    (t: { status: string }) => t.status === 'PENDING'
+  ).length;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop sidebar */}
@@ -72,6 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 px-3 py-4 space-y-1">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
+            const badge = item.href === '/tasks' && pendingCount > 0 ? pendingCount : null;
             return (
               <Link
                 key={item.href}
@@ -83,7 +96,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 {item.icon(isActive)}
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {badge && (
+                  <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground leading-none">
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -133,6 +151,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-around h-16 px-2">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
+            const badge = item.href === '/tasks' && pendingCount > 0 ? pendingCount : null;
             return (
               <Link
                 key={item.href}
@@ -143,7 +162,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     : 'text-muted-foreground active:text-foreground'
                 }`}
               >
-                {item.icon(isActive)}
+                <span className="relative">
+                  {item.icon(isActive)}
+                  {badge && (
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground leading-none">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                </span>
                 <span className={`text-[10px] leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
                   {item.label}
                 </span>
