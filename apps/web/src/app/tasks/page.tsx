@@ -10,7 +10,7 @@ export default function TasksPage() {
       <div className="min-h-screen bg-background">
         <Sidebar />
         <main className="pl-0 md:pl-56">
-          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
+          <div className="max-w-4xl mx-auto px-4 py-6 pb-20 sm:px-8 sm:py-8 sm:pb-8">
             <TaskList />
           </div>
         </main>

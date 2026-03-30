@@ -8,11 +8,19 @@ import { useAuthStore } from '@/lib/store';
  * In production, this will be replaced with Azure AD B2C OAuth flow.
  */
 export function DevAuthProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loadToken } = useAuthStore();
+  const { isAuthenticated, isLoading, loadToken } = useAuthStore();
 
   useEffect(() => {
     loadToken();
   }, [loadToken]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <DevLoginScreen />;

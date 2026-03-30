@@ -6,55 +6,117 @@ import type { Task } from '@/lib/types';
 import { toast } from 'sonner';
 import { format, isPast, isToday, isTomorrow, differenceInHours } from 'date-fns';
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  HOMEWORK: '📝',
-  PROJECT: '🔬',
-  TEST: '📋',
-  QUIZ: '❓',
-  LOST_ITEM: '🔍',
-  PERSONAL: '🎯',
-};
-
-const PRIORITY_DOT: Record<string, string> = {
-  HIGH: 'bg-red-500',
-  MEDIUM: 'bg-yellow-500',
-  LOW: 'bg-green-500',
-};
-
 interface TaskCardProps {
   task: Task;
-  onEdit?: (task: Task) => void;
 }
 
-export function TaskCard({ task, onEdit }: TaskCardProps) {
+export function TaskCard({ task }: TaskCardProps) {
   const queryClient = useQueryClient();
 
   const completeMutation = useMutation({
     mutationFn: () => tasksApi.complete(task.id),
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      const xp = response.meta?.xpAwarded || 0;
-      toast.success(`+${xp} XP`, {
-        description: `"${task.title}" completed`,
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previousData = queryClient.getQueriesData({ queryKey: ['tasks'] });
+      queryClient.setQueriesData({ queryKey: ['tasks'] }, (old: unknown) => {
+        const prev = old as { data?: Task[] } | undefined;
+        if (!prev?.data) return prev;
+        return {
+          ...prev,
+          data: prev.data.map((t) =>
+            t.id === task.id
+              ? { ...t, status: 'COMPLETED' as const, completedAt: new Date().toISOString(), xpAwarded: 100 }
+              : t
+          ),
+        };
       });
+      return { previousData };
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        for (const [key, data] of context.previousData) {
+          queryClient.setQueryData(key, data);
+        }
+      }
       toast.error('Failed to complete task');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onSuccess: (response) => {
+      const xp = response.meta?.xpAwarded || 0;
+      toast.success(`+${xp} XP`, { description: `"${task.title}" completed` });
+    },
+  });
+
+  const uncompleteMutation = useMutation({
+    mutationFn: () => tasksApi.uncomplete(task.id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previousData = queryClient.getQueriesData({ queryKey: ['tasks'] });
+      queryClient.setQueriesData({ queryKey: ['tasks'] }, (old: unknown) => {
+        const prev = old as { data?: Task[] } | undefined;
+        if (!prev?.data) return prev;
+        return {
+          ...prev,
+          data: prev.data.map((t) =>
+            t.id === task.id
+              ? { ...t, status: 'PENDING' as const, completedAt: null, xpAwarded: 0 }
+              : t
+          ),
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        for (const [key, data] of context.previousData) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      toast.error('Failed to reopen task');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onSuccess: () => {
+      toast('Task reopened', { description: task.title });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => tasksApi.delete(task.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast('Task deleted', { description: task.title });
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previousData = queryClient.getQueriesData({ queryKey: ['tasks'] });
+      queryClient.setQueriesData({ queryKey: ['tasks'] }, (old: unknown) => {
+        const prev = old as { data?: Task[] } | undefined;
+        if (!prev?.data) return prev;
+        return {
+          ...prev,
+          data: prev.data.filter((t) => t.id !== task.id),
+        };
+      });
+      return { previousData };
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        for (const [key, data] of context.previousData) {
+          queryClient.setQueryData(key, data);
+        }
+      }
       toast.error('Failed to delete task');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onSuccess: () => {
+      toast('Task deleted', { description: task.title });
     },
   });
 
   const isCompleted = task.status === 'COMPLETED';
+  const isToggling = completeMutation.isPending || uncompleteMutation.isPending;
   const dueDate = task.dueDate ? new Date(task.dueDate) : null;
   const isOverdue = dueDate && isPast(dueDate) && !isCompleted;
 
@@ -73,105 +135,92 @@ export function TaskCard({ task, onEdit }: TaskCardProps) {
 
   return (
     <div
-      className={`group flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 transition-colors hover:bg-accent/40 ${
+      className={`group relative px-3 sm:px-3 py-3 border-b border-border last:border-b-0 transition-colors active:bg-accent/40 sm:hover:bg-accent/40 ${
         isCompleted ? 'opacity-50' : ''
       }`}
     >
-      {/* Checkbox */}
-      <button
-        onClick={() => !isCompleted && completeMutation.mutate()}
-        disabled={isCompleted || completeMutation.isPending}
-        className={`flex-shrink-0 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[1.5px] transition-all ${
-          isCompleted
-            ? 'border-primary bg-primary'
-            : completeMutation.isPending
-              ? 'border-primary/50 animate-pulse'
-              : 'border-muted-foreground/30 hover:border-primary'
-        }`}
-      >
-        {isCompleted && (
-          <svg className="h-2.5 w-2.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </button>
-
-      {/* Priority dot */}
-      <span className={`flex-shrink-0 h-2 w-2 rounded-full ${PRIORITY_DOT[task.priority]}`} />
-
-      {/* Content */}
-      <div className="flex-1 min-w-0 flex items-center gap-2">
-        <span
-          className={`text-sm truncate ${
+      {/* Top row: checkbox + title + due date */}
+      <div className="flex items-start gap-3">
+        {/* Checkbox — larger touch target on mobile */}
+        <button
+          onClick={() => isCompleted ? uncompleteMutation.mutate() : completeMutation.mutate()}
+          disabled={isToggling}
+          className={`flex-shrink-0 mt-0.5 flex h-5 w-5 sm:h-[18px] sm:w-[18px] items-center justify-center rounded-full border-[1.5px] transition-all ${
             isCompleted
-              ? 'line-through text-muted-foreground'
-              : 'text-foreground font-medium'
+              ? 'border-primary bg-primary hover:bg-primary/70 hover:border-primary/70'
+              : isToggling
+                ? 'border-primary/50 animate-pulse'
+                : 'border-muted-foreground/30 hover:border-primary'
           }`}
         >
-          {task.title}
-        </span>
+          {isCompleted && (
+            <svg className="h-2.5 w-2.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
 
-        {task.description && (
-          <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[200px]">
-            {task.description}
-          </span>
-        )}
-      </div>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            {task.priority === 'HIGH' && (
+              <svg className="h-3.5 w-3.5 flex-shrink-0 text-red-500 fill-red-500" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
+              </svg>
+            )}
+            <span
+              className={`text-sm truncate ${
+                isCompleted
+                  ? 'line-through text-muted-foreground'
+                  : 'text-foreground font-medium'
+              }`}
+            >
+              {task.title}
+            </span>
+          </div>
 
-      {/* Tags */}
-      <div className="flex-shrink-0 flex items-center gap-2">
-        {task.subject && (
-          <span className="hidden sm:inline-flex text-[11px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground font-medium">
-            {task.subject}
-          </span>
-        )}
+          {/* Second line: metadata */}
+          <div className="flex items-center gap-2 mt-1">
+            {dueDateLabel && (
+              <span
+                className={`text-[11px] font-medium tabular-nums ${
+                  isOverdue
+                    ? 'text-destructive'
+                    : dueDateLabel === 'Today'
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-muted-foreground'
+                }`}
+              >
+                {dueDateLabel}
+              </span>
+            )}
 
-        <span className="text-xs text-muted-foreground">
-          {CATEGORY_EMOJI[task.category]}
-        </span>
+            {isCompleted && task.xpAwarded > 0 && (
+              <span className="text-[11px] font-medium text-primary">
+                +{task.xpAwarded}
+              </span>
+            )}
+          </div>
 
-        {dueDateLabel && (
-          <span
-            className={`text-[11px] font-medium tabular-nums ${
-              isOverdue
-                ? 'text-destructive'
-                : dueDateLabel === 'Today'
-                  ? 'text-yellow-600 dark:text-yellow-400'
-                  : 'text-muted-foreground'
-            }`}
-          >
-            {dueDateLabel}
-          </span>
-        )}
+          {task.description && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {task.description}
+            </p>
+          )}
+        </div>
 
-        {isCompleted && task.xpAwarded > 0 && (
-          <span className="text-[11px] font-medium text-primary">
-            +{task.xpAwarded}
-          </span>
-        )}
-      </div>
-
-      {/* Actions - appear on hover */}
-      <div className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        {onEdit && !isCompleted && (
+        {/* Actions — always visible on mobile, hover on desktop */}
+        <div className="flex-shrink-0 flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
-            onClick={() => onEdit(task)}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => deleteMutation.mutate()}
+            disabled={deleteMutation.isPending}
+            className="p-1.5 -mr-1.5 rounded-md active:bg-destructive/10 sm:hover:bg-destructive/10 text-muted-foreground active:text-destructive sm:hover:text-destructive transition-colors"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+            <svg className="h-4 w-4 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
             </svg>
           </button>
-        )}
-        <button
-          onClick={() => deleteMutation.mutate()}
-          disabled={deleteMutation.isPending}
-          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-          </svg>
-        </button>
+        </div>
       </div>
     </div>
   );

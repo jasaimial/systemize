@@ -66,6 +66,13 @@ export const tasksApi = {
     return data;
   },
 
+  uncomplete: async (id: string) => {
+    const { data } = await api.post<
+      ApiResponse<Task> & { meta?: { xpDeducted?: number; progress?: UserProgress } }
+    >(`/tasks/${id}/uncomplete`);
+    return data;
+  },
+
   upcoming: async () => {
     const { data } = await api.get<ApiResponse<Task[]>>('/tasks/upcoming');
     return data;

@@ -12,6 +12,9 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Cache of user IDs we've already ensured exist in the DB
+const knownUsers = new Set<string>();
+
 export const authenticate = async (req: AuthRequest, _res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -28,18 +31,21 @@ export const authenticate = async (req: AuthRequest, _res: Response, next: NextF
       provider: string;
     };
 
-    // Ensure user exists in database (auto-create for dev tokens)
-    await prisma.user.upsert({
-      where: { id: decoded.id },
-      update: {},
-      create: {
-        id: decoded.id,
-        email: decoded.email,
-        name: decoded.email.split('@')[0],
-        provider: decoded.provider,
-        providerId: `${decoded.provider}-${decoded.id}`,
-      },
-    });
+    // Only upsert once per server lifetime per user
+    if (!knownUsers.has(decoded.id)) {
+      await prisma.user.upsert({
+        where: { id: decoded.id },
+        update: {},
+        create: {
+          id: decoded.id,
+          email: decoded.email,
+          name: decoded.email.split('@')[0],
+          provider: decoded.provider,
+          providerId: `${decoded.provider}-${decoded.id}`,
+        },
+      });
+      knownUsers.add(decoded.id);
+    }
 
     req.user = decoded;
     next();

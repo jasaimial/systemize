@@ -3,23 +3,18 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '@/lib/api';
-import type { CreateTaskInput, TaskCategory, Priority } from '@/lib/types';
+import type { CreateTaskInput } from '@/lib/types';
 import { toast } from 'sonner';
+import { format, addDays, nextSunday, addWeeks } from 'date-fns';
 
-const CATEGORIES: { value: TaskCategory; label: string; emoji: string }[] = [
-  { value: 'HOMEWORK', label: 'Homework', emoji: '📝' },
-  { value: 'PROJECT', label: 'Project', emoji: '🔬' },
-  { value: 'TEST', label: 'Test', emoji: '📋' },
-  { value: 'QUIZ', label: 'Quiz', emoji: '❓' },
-  { value: 'LOST_ITEM', label: 'Lost Item', emoji: '🔍' },
-  { value: 'PERSONAL', label: 'Personal', emoji: '🎯' },
-];
+function toDateStr(date: Date) {
+  return format(date, 'yyyy-MM-dd');
+}
 
-const PRIORITIES: { value: Priority; label: string; dot: string }[] = [
-  { value: 'HIGH', label: 'High', dot: 'bg-red-500' },
-  { value: 'MEDIUM', label: 'Medium', dot: 'bg-yellow-500' },
-  { value: 'LOW', label: 'Low', dot: 'bg-green-500' },
-];
+const today = () => toDateStr(new Date());
+const tomorrow = () => toDateStr(addDays(new Date(), 1));
+const thisWeekEnd = () => toDateStr(nextSunday(new Date()));
+const nextWeekEnd = () => toDateStr(nextSunday(addWeeks(new Date(), 1)));
 
 interface TaskFormProps {
   onSuccess?: () => void;
@@ -31,33 +26,63 @@ export function TaskForm({ onSuccess, onCancel }: TaskFormProps) {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [category, setCategory] = useState<TaskCategory>('HOMEWORK');
-  const [priority, setPriority] = useState<Priority>('MEDIUM');
-  const [subject, setSubject] = useState('');
-  const [showDetails, setShowDetails] = useState(false);
+  const [dueDate, setDueDate] = useState(today());
+  const [isImportant, setIsImportant] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const isPreset = (value: string) => [today(), tomorrow(), thisWeekEnd(), nextWeekEnd()].includes(value);
 
   const createMutation = useMutation({
     mutationFn: (input: CreateTaskInput) => tasksApi.create(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast.success('Task created');
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previousData = queryClient.getQueriesData({ queryKey: ['tasks'] });
+      queryClient.setQueriesData({ queryKey: ['tasks'] }, (old: unknown) => {
+        const prev = old as { data?: CreateTaskInput[] } | undefined;
+        if (!prev?.data) return prev;
+        const optimisticTask = {
+          id: `temp-${Date.now()}`,
+          userId: '',
+          title: input.title,
+          description: input.description || null,
+          dueDate: input.dueDate || null,
+          category: 'HOMEWORK' as const,
+          priority: input.priority || 'MEDIUM',
+          status: 'PENDING' as const,
+          subject: null,
+          xpAwarded: 0,
+          completedAt: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        return { ...prev, data: [optimisticTask, ...prev.data] };
+      });
       resetForm();
       onSuccess?.();
+      return { previousData };
     },
-    onError: (error: Error & { response?: { data?: { error?: { message?: string } } } }) => {
-      toast.error(error?.response?.data?.error?.message || 'Failed to create task');
+    onError: (_err, _input, context) => {
+      if (context?.previousData) {
+        for (const [key, data] of context.previousData) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      toast.error('Failed to create task');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onSuccess: () => {
+      toast.success('Task created');
     },
   });
 
   const resetForm = () => {
     setTitle('');
     setDescription('');
-    setDueDate('');
-    setCategory('HOMEWORK');
-    setPriority('MEDIUM');
-    setSubject('');
-    setShowDetails(false);
+    setDueDate(today());
+    setIsImportant(false);
+    setShowDatePicker(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -67,105 +92,130 @@ export function TaskForm({ onSuccess, onCancel }: TaskFormProps) {
     createMutation.mutate({
       title: title.trim(),
       description: description.trim() || null,
-      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-      category,
-      priority,
-      subject: subject.trim() || null,
+      dueDate: dueDate ? new Date(dueDate + 'T23:59:59').toISOString() : null,
+      priority: isImportant ? 'HIGH' : 'MEDIUM',
     });
   };
 
+  const activeDateChip = (value: string) =>
+    dueDate === value
+      ? 'bg-primary text-primary-foreground'
+      : 'bg-secondary text-muted-foreground active:bg-accent sm:hover:bg-accent hover:text-foreground';
+
   return (
     <form onSubmit={handleSubmit} className="border border-primary/20 rounded-lg bg-card overflow-hidden">
-      {/* Title row */}
-      <div className="px-3 pt-3">
+      {/* Title */}
+      <div className="px-4 pt-3">
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Task title"
+          placeholder="What do you need to do?"
           className="w-full text-sm bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none font-medium"
           autoFocus
           maxLength={200}
         />
       </div>
 
-      {/* Description */}
-      {showDetails && (
-        <div className="px-3 pt-1.5">
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Add description..."
-            rows={2}
-            className="w-full text-xs bg-transparent text-muted-foreground placeholder:text-muted-foreground/60 focus:outline-none resize-none"
-            maxLength={2000}
+      {/* Description — always visible */}
+      <div className="px-4 pt-1">
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Notes (optional)"
+          rows={2}
+          className="w-full text-xs bg-transparent text-muted-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none"
+          maxLength={2000}
+        />
+      </div>
+
+      {/* Due date chips */}
+      <div className="flex items-center gap-1.5 px-4 pt-1 flex-wrap">
+        <span className="text-[11px] text-muted-foreground mr-0.5">Due:</span>
+        <button
+          type="button"
+          onClick={() => { setDueDate(today()); setShowDatePicker(false); }}
+          className={`text-xs h-7 px-2.5 rounded-full font-medium transition-colors ${activeDateChip(today())}`}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => { setDueDate(tomorrow()); setShowDatePicker(false); }}
+          className={`text-xs h-7 px-2.5 rounded-full font-medium transition-colors ${activeDateChip(tomorrow())}`}
+        >
+          Tomorrow
+        </button>
+        <button
+          type="button"
+          onClick={() => { setDueDate(thisWeekEnd()); setShowDatePicker(false); }}
+          className={`text-xs h-7 px-2.5 rounded-full font-medium transition-colors ${activeDateChip(thisWeekEnd())}`}
+        >
+          This week
+        </button>
+        <button
+          type="button"
+          onClick={() => { setDueDate(nextWeekEnd()); setShowDatePicker(false); }}
+          className={`text-xs h-7 px-2.5 rounded-full font-medium transition-colors ${activeDateChip(nextWeekEnd())}`}
+        >
+          Next week
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowDatePicker(!showDatePicker)}
+          className={`text-xs h-7 px-2.5 rounded-full font-medium transition-colors ${
+            !isPreset(dueDate) && dueDate
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-muted-foreground active:bg-accent sm:hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          {!isPreset(dueDate) && dueDate ? format(new Date(dueDate + 'T00:00:00'), 'MMM d') : '...'}
+        </button>
+      </div>
+
+      {/* Date picker — shown on demand */}
+      {showDatePicker && (
+        <div className="px-4 pt-1.5">
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => { setDueDate(e.target.value); setShowDatePicker(false); }}
+            className="text-xs h-9 sm:h-7 px-3 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full sm:w-auto"
+            autoFocus
           />
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 mt-1">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Category */}
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as TaskCategory)}
-            className="text-[11px] h-7 px-2 rounded-md border border-border bg-background text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+      {/* Bottom bar: flag + actions */}
+      <div className="flex items-center justify-between px-4 py-3 mt-1">
+        {/* Flag toggle */}
+        <button
+          type="button"
+          onClick={() => setIsImportant(!isImportant)}
+          className={`flex items-center gap-1.5 text-xs h-8 px-2.5 rounded-md transition-colors ${
+            isImportant
+              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              : 'text-muted-foreground active:bg-accent sm:hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          <svg
+            className={`h-3.5 w-3.5 ${isImportant ? 'fill-current' : ''}`}
+            fill={isImportant ? 'currentColor' : 'none'}
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
           >
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.emoji} {c.label}
-              </option>
-            ))}
-          </select>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
+          </svg>
+          {isImportant ? 'Important' : 'Flag'}
+        </button>
 
-          {/* Priority */}
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as Priority)}
-            className="text-[11px] h-7 px-2 rounded-md border border-border bg-background text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-          >
-            {PRIORITIES.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Subject */}
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Subject"
-            className="text-[11px] h-7 w-24 px-2 rounded-md border border-border bg-background text-muted-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
-            maxLength={100}
-          />
-
-          {/* Due date */}
-          <input
-            type="datetime-local"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="text-[11px] h-7 px-2 rounded-md border border-border bg-background text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-          />
-
-          {/* Toggle details */}
-          <button
-            type="button"
-            onClick={() => setShowDetails(!showDetails)}
-            className="text-[11px] h-7 px-2 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            {showDetails ? 'Less' : 'More'}
-          </button>
-        </div>
-
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {onCancel && (
             <button
               type="button"
               onClick={() => { resetForm(); onCancel(); }}
-              className="text-[11px] h-7 px-3 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="text-xs h-8 sm:h-7 px-3 rounded-md text-muted-foreground hover:text-foreground active:bg-accent sm:hover:bg-accent transition-colors"
             >
               Cancel
             </button>
@@ -173,9 +223,9 @@ export function TaskForm({ onSuccess, onCancel }: TaskFormProps) {
           <button
             type="submit"
             disabled={createMutation.isPending || !title.trim()}
-            className="text-[11px] h-7 px-3 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="text-xs h-8 sm:h-7 px-4 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 active:bg-primary/80 transition-colors disabled:opacity-40"
           >
-            {createMutation.isPending ? 'Adding...' : 'Add'}
+            Add
           </button>
         </div>
       </div>
