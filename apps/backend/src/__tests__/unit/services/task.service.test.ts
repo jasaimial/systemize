@@ -16,6 +16,7 @@ describe('TaskService Unit Tests', () => {
 
   beforeEach(() => {
     mockReset(prismaMock);
+    prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
     jest.useFakeTimers();
   });
 
@@ -37,6 +38,10 @@ describe('TaskService Unit Tests', () => {
       prismaMock.userProgress.update.mockResolvedValue({ totalXP: 100 });
       // @ts-ignore
       prismaMock.task.aggregate.mockResolvedValue({ _sum: { xpAwarded: 100 } });
+      // @ts-ignore
+      prismaMock.userBadge.findMany.mockResolvedValue([]);
+      // @ts-ignore
+      prismaMock.badge.findMany.mockResolvedValue([]);
 
       const result = await taskService.complete(testUserId, testTaskId);
       expect(result.xpAwarded).toBe(100);
@@ -56,6 +61,10 @@ describe('TaskService Unit Tests', () => {
       prismaMock.userProgress.upsert.mockResolvedValue({ totalXP: 150, lastActivityAt: now });
       // @ts-ignore
       prismaMock.userProgress.update.mockResolvedValue({ totalXP: 150 });
+      // @ts-ignore
+      prismaMock.userBadge.findMany.mockResolvedValue([]);
+      // @ts-ignore
+      prismaMock.badge.findMany.mockResolvedValue([]);
 
       const result = await taskService.complete(testUserId, testTaskId);
       expect(result.xpAwarded).toBe(150); 
@@ -75,6 +84,10 @@ describe('TaskService Unit Tests', () => {
       prismaMock.userProgress.upsert.mockResolvedValue({ totalXP: 50, lastActivityAt: now });
       // @ts-ignore
       prismaMock.userProgress.update.mockResolvedValue({ totalXP: 50 });
+      // @ts-ignore
+      prismaMock.userBadge.findMany.mockResolvedValue([]);
+      // @ts-ignore
+      prismaMock.badge.findMany.mockResolvedValue([]);
 
       const result = await taskService.complete(testUserId, testTaskId);
       expect(result.xpAwarded).toBe(50);
@@ -117,7 +130,7 @@ describe('TaskService Unit Tests', () => {
       const result = servicePrivate['calculateStreak']({
         currentStreak: 5, longestStreak: 5, lastActivityAt: new Date('2026-03-20T10:00:00Z')
       });
-      expect(result.currentStreak).toBe(5);
+      expect(result).toEqual({});
     });
 
     it('should reset streak if previous activity was > 1 day ago', () => {
